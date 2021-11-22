@@ -18,6 +18,9 @@
 #include <string>
 #include <claraparabricks/genomeworks/cudapoa/utils.hpp> // for get_multi_batch_sizes()
 #include "application_parameters.hpp"
+#include <sys/time.h>
+#include <sys/resource.h>
+#include <time.h>
 
 namespace claraparabricks
 {
@@ -66,8 +69,13 @@ std::unique_ptr<Batch> initialize_batch(int32_t mismatch_score,
 
 void process_batch(Batch* batch, bool msa_flag, bool print, std::vector<int32_t>& list_of_group_ids, int id_offset)
 {
+    struct timeval start_time, end_time;
+    double runtime = 0;
+
+    gettimeofday(&start_time, NULL);
     batch->generate_poa();
     std::string error_message, error_hint;
+
 
     StatusType status = StatusType::success;
     if (msa_flag)
@@ -122,6 +130,8 @@ void process_batch(Batch* batch, bool msa_flag, bool print, std::vector<int32_t>
                       << error_hint << std::endl;
         }
 
+        gettimeofday(&end_time, NULL);
+        runtime += (end_time.tv_sec - start_time.tv_sec)*1e6 + end_time.tv_usec - start_time.tv_usec;
         for (int32_t g = 0; g < get_size(consensus); g++)
         {
             if (output_status[g] != StatusType::success)
@@ -139,6 +149,7 @@ void process_batch(Batch* batch, bool msa_flag, bool print, std::vector<int32_t>
                 }
             }
         }
+        fprintf(stderr, "cudapoa completed. Kernel runtime: %.2f sec\n", runtime*1e-6);
     }
 }
 
